@@ -1,0 +1,41 @@
+{
+    "name": "vue_to_san",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "test": "mocha --compilers ts:ts-node/register,tsx:ts-node/register --reporter spec test/test.ts",
+        "test-w": "mocha --compilers ts:ts-node/register,tsx:ts-node/register --watch --reporter spec test/test.ts"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/ssddi456/vue_to_san.git"
+    },
+    "author": "",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/ssddi456/vue_to_san/issues"
+    },
+    "homepage": "https://github.com/ssddi456/vue_to_san#readme",
+    "dependencies": {
+        "debug": "^3.1.0",
+        "parse-gitignore": "^1.0.1",
+        "parse5": "^5.1.0",
+        "prettier": "^1.14.2",
+        "typescript": "^3.0.1",
+        "vscode-languageserver": "^4.4.1",
+        "vscode-languageserver-types": "^3.10.1",
+        "vscode-uri": "^1.0.5"
+    },
+    "devDependencies": {
+        "@types/chai": "^4.1.4",
+        "@types/debug": "0.0.30",
+        "@types/mocha": "^5.2.5",
+        "@types/node": "^10.7.0",
+        "@types/parse5": "^5.0.0",
+        "@types/prettier": "^1.13.2",
+        "chai": "^4.1.2",
+        "mocha": "^5.2.0",
+        "ts-node": "^7.0.1"
+    }
+}
