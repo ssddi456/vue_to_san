@@ -88,7 +88,7 @@ export function logAstCode(ast: ts.Node) {
 }
 
 export function astStringify(ast: ts.Node){
-    return printer.printNode(ts.EmitHint.SourceFile, ast,
+    return printer.printNode(ts.EmitHint.Unspecified, ast,
         ts.createSourceFile('test.ts', '', ts.ScriptTarget.ES3)
     );
 }

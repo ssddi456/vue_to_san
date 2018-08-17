@@ -4,8 +4,8 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "test": "mocha --compilers ts:ts-node/register,tsx:ts-node/register --reporter spec test/test.ts",
-        "test-w": "mocha --compilers ts:ts-node/register,tsx:ts-node/register --watch --reporter spec test/test.ts"
+        "test": "mocha --compilers ts:ts-node/register,tsx:ts-node/register --reporter spec --recursive",
+        "test-w": "mocha --compilers ts:ts-node/register,tsx:ts-node/register --watch --reporter spec --recursive"
     },
     "repository": {
         "type": "git",

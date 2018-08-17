@@ -1,9 +1,6 @@
 import * as parse5 from 'parse5';
-import * as ts from 'typescript';
-import { findDefaultExports, astStringify } from './libs/astHelper';
-import * as util from 'util';
-import * as prettier from 'prettier';
-import { assert } from 'console';
+import { modifyVueScript } from './modes/javascript';
+
 
 function modifyVueAttr(attr: parse5.Attribute, allAttr: parse5.Attribute[]) {
     /**
@@ -111,79 +108,6 @@ function walkVueTemplate(doc: parse5.DefaultTreeElement) {
     }
 }
 
-type vueCompoentTypeInfo = {
-    dataNames: string[]
-};
-
-function getComponentType(vueExport: ts.ObjectLiteralExpression): vueCompoentTypeInfo {
-    const dataNames = [] as string[]
-    return {
-        dataNames,
-    };
-}
-
-function modifyVueMethods(methods: ts.MethodDeclaration, componentInfo: vueCompoentTypeInfo) {
-
-}
-
-function modifyVueScript(vueCode: string) {
-    /**
-     * 将vue的js转换成san的js
-     * 导出vue component的类型
-     * 
-     * {
-     *   data  => initData
-     * }
-     */
-
-    const vueSourceFile = ts.createSourceFile('test.ts', vueCode, ts.ScriptTarget.ES2015);
-    const vueCompoentExports = findDefaultExports(vueSourceFile);
-
-    if (vueCompoentExports
-        && ts.isObjectLiteralExpression(vueCompoentExports.expression)
-    ) {
-
-        const vueCompoentOption = vueCompoentExports.expression as ts.ObjectLiteralExpression;
-
-        const vueComponentType = getComponentType(vueCompoentOption);
-
-        const methods = [];
-        let methodsToRemove;
-        vueCompoentOption.properties.forEach(function (x) {
-            const propertyName = (x.name as ts.Identifier).escapedText as string;
-            if (propertyName == 'data') {
-                ((x.name as ts.Identifier).escapedText as string) = 'initData';
-            } else if (propertyName == 'methods' && ts.isPropertyAssignment(x)) {
-                methodsToRemove = x;
-                if (ts.isObjectLiteralExpression(x.initializer)) {
-                    x.initializer.properties.forEach(element => {
-                        if (ts.isMethodDeclaration(element)) {
-                            modifyVueMethods(element, vueComponentType);
-                            methods.push(element);
-                        };
-                    });
-                }
-            }
-        });
-        if (methodsToRemove) {
-            [].splice.apply(vueCompoentOption.properties,
-                [
-                    vueCompoentOption.properties.indexOf(methodsToRemove),
-                    1,
-                    ...methods
-                ])
-        }
-    }
-
-
-    return prettier.format(
-        astStringify(vueSourceFile),
-        {
-            parser: 'typescript',
-            singleQuote: true,
-            tabWidth: 4
-        });
-}
 
 export function vueToSan(vueCode: string) {
     const vueTree = parse5.parseFragment(vueCode, { sourceCodeLocationInfo: true });

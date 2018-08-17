@@ -7,7 +7,7 @@ import { vueToSan } from "..";
 
 
 
-describe('基本测试', function () {
+describe('template transform', function () {
 
     const tests: {
         [k: string]: {
@@ -155,6 +155,31 @@ export default {
 <style>
 </style>`
         },
+        'script methods this data set': {
+            vueCode: `<template>
+</template>
+<script>
+export default {
+    methods: {
+        test() {
+            this.some = 1;
+        }
+    }
+};
+</script>
+<style>
+</style>`,
+            sanCode: `<template>
+</template>
+<script>export default {
+    test() {
+        this.data.set('some', 1);
+    }
+};
+</script>
+<style>
+</style>`
+        },
     };
 
     for (const k in tests) {
@@ -168,7 +193,5 @@ export default {
             assert.equal(sanCode, tests[k].sanCode);
         })
     }
-
-
 });
 
