@@ -15,12 +15,29 @@ export function getComponentType(vueExport: ts.ObjectLiteralExpression): vueComp
     };
 }
 
+const arrayMethods = ["push", "pop", "unshift", "shift", "remove", "removeAt", "splice"];
+
 export function modifyVueMethods(method: ts.MethodDeclaration, componentInfo: vueCompoentTypeInfo) {
     const accessCallsToModify = markThisDataGetOrSet(method);
     const astReplaceInfos: astReplaceInfo[] = [];
     for (let i = 0; i < accessCallsToModify.length; i++) {
         const element = accessCallsToModify[i];
-        astReplaceInfos.push({ origin: element, modified: getPropertyToGetData(element) })
+        const parent = element.parent;
+        // console.log('parent kind', ts.SyntaxKind[element.kind],  ts.SyntaxKind[parent.kind]);
+        if (ts.isBinaryExpression(parent) && parent.operatorToken.kind == ts.SyntaxKind.EqualsToken) {
+            astReplaceInfos.push({ origin: parent, modified: setPropertyToSetData(parent as any) });
+        } else if(ts.isCallExpression(parent) && parent.expression == element ){
+            // process arrays
+            if (ts.isPropertyAccessExpression(element)) {
+                const callName = element.name.text;    
+                if (arrayMethods.indexOf(callName) !== -1){
+                    astReplaceInfos.push({ origin: parent, modified: arrayOperatorToArrayData(parent)})
+                }
+            }
+        } else {
+            astReplaceInfos.push({ origin: element, modified: getPropertyToGetData(element) })
+        }
+        // process +=
     }
 
     return replaceAccessors(method, astReplaceInfos);
@@ -164,7 +181,7 @@ export function getPropertyToGetData(ast: ts.PropertyAccessExpression | ts.Eleme
     return ret;
 }
 
-export function setPropertyToSetData(ast: ts.AssignmentExpression<ts.AssignmentOperatorToken>): ts.CallExpression {
+export function setPropertyToSetData<T extends ts.AssignmentOperatorToken>(ast: ts.AssignmentExpression<T>): ts.CallExpression {
     const ret = ts.createCall(
         ts.createPropertyAccess(
             ts.createPropertyAccess(
@@ -176,6 +193,24 @@ export function setPropertyToSetData(ast: ts.AssignmentExpression<ts.AssignmentO
         null,
         ts.createNodeArray([propertyAccessToDataOPath(ast.left as ts.PropertyAccessExpression), ast.right])
     );
+    return ret;
+}
+
+
+export function arrayOperatorToArrayData(ast: ts.CallExpression): ts.CallExpression{
+    const access = ast.expression as ts.PropertyAccessExpression;
+    const ret = ts.createCall(
+        ts.createPropertyAccess(
+            ts.createPropertyAccess(
+                ts.createThis(),
+                'data'
+            ),
+            access.name.text
+        ),
+        null,
+        ts.createNodeArray([ propertyAccessToDataOPath(access.expression as ts.PropertyAccessExpression), ...ast.arguments])
+    );
+
     return ret;
 }
 

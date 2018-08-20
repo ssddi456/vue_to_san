@@ -180,6 +180,31 @@ export default {
 <style>
 </style>`
         },
+        'script methods this data array': {
+            vueCode: `<template>
+</template>
+<script>
+export default {
+    methods: {
+        test() {
+            this.some.push(1);
+        }
+    }
+};
+</script>
+<style>
+</style>`,
+            sanCode: `<template>
+</template>
+<script>export default {
+    test() {
+        this.data.push('some', 1);
+    }
+};
+</script>
+<style>
+</style>`
+        },
     };
 
     for (const k in tests) {
