@@ -5,15 +5,11 @@ import { assert } from "chai";
 import { setPropertyToSetData, getPropertyToGetData, propertyAccessToDataOPath, astToCode, modifyVueMethods, markThisDataGetOrSet } from '../modes/javascript';
 import * as ts from 'typescript';
 import { inspect } from 'util';
+import { transpileTestCases } from './test';
 
 describe('properties access to data path', function () {
 
-    const tests: {
-        [k: string]: {
-            vueCode: string,
-            sanCode: string
-        }
-    } = {
+    const tests: transpileTestCases = {
         'simple 1': {
             vueCode: `this.some`,
             sanCode: `'some'
@@ -65,12 +61,7 @@ describe('properties access to data path', function () {
 
 describe('properties change', function () {
 
-    const tests: {
-        [k: string]: {
-            vueCode: string,
-            sanCode: string
-        }
-    } = {
+    const tests: transpileTestCases = {
         'get to data.get': {
             vueCode: `this.some`,
             sanCode: `this.data.get('some')

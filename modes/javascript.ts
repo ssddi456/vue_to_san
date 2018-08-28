@@ -26,12 +26,12 @@ export function modifyVueMethods(method: ts.MethodDeclaration, componentInfo: vu
         // console.log('parent kind', ts.SyntaxKind[element.kind],  ts.SyntaxKind[parent.kind]);
         if (ts.isBinaryExpression(parent) && parent.operatorToken.kind == ts.SyntaxKind.EqualsToken) {
             astReplaceInfos.push({ origin: parent, modified: setPropertyToSetData(parent as any) });
-        } else if(ts.isCallExpression(parent) && parent.expression == element ){
+        } else if (ts.isCallExpression(parent) && parent.expression == element) {
             // process arrays
             if (ts.isPropertyAccessExpression(element)) {
-                const callName = element.name.text;    
-                if (arrayMethods.indexOf(callName) !== -1){
-                    astReplaceInfos.push({ origin: parent, modified: arrayOperatorToArrayData(parent)})
+                const callName = element.name.text;
+                if (arrayMethods.indexOf(callName) !== -1) {
+                    astReplaceInfos.push({ origin: parent, modified: arrayOperatorToArrayData(parent) })
                 }
             }
         } else {
@@ -197,7 +197,7 @@ export function setPropertyToSetData<T extends ts.AssignmentOperatorToken>(ast: 
 }
 
 
-export function arrayOperatorToArrayData(ast: ts.CallExpression): ts.CallExpression{
+export function arrayOperatorToArrayData(ast: ts.CallExpression): ts.CallExpression {
     const access = ast.expression as ts.PropertyAccessExpression;
     const ret = ts.createCall(
         ts.createPropertyAccess(
@@ -208,7 +208,7 @@ export function arrayOperatorToArrayData(ast: ts.CallExpression): ts.CallExpress
             access.name.text
         ),
         null,
-        ts.createNodeArray([ propertyAccessToDataOPath(access.expression as ts.PropertyAccessExpression), ...ast.arguments])
+        ts.createNodeArray([propertyAccessToDataOPath(access.expression as ts.PropertyAccessExpression), ...ast.arguments])
     );
 
     return ret;
@@ -230,19 +230,35 @@ export function modifyVueScript(vueCode: string) {
     if (vueCompoentExports
         && ts.isObjectLiteralExpression(vueCompoentExports.expression)
     ) {
-
         const vueCompoentOption = vueCompoentExports.expression as ts.ObjectLiteralExpression;
+        modifyVueComponent(vueCompoentOption);
+    }
 
-        const vueComponentType = getComponentType(vueCompoentOption);
+    return astToCode(vueSourceFile)
+}
 
-        const methods = [];
-        let methodsToRemove;
-        vueCompoentOption.properties.forEach(function (x) {
-            const propertyName = (x.name as ts.Identifier).escapedText as string;
+export function modifyVueComponent(vueCompoentOption: ts.ObjectLiteralExpression) {
+
+
+    const vueComponentType = getComponentType(vueCompoentOption);
+
+    const methods = [];
+    const propertiesToRemove = [];
+    vueCompoentOption.properties.forEach(function (x) {
+
+        const propertyName = (x.name as ts.Identifier).escapedText as string;
+        if (ts.isPropertyAssignment(x)) {
+
             if (propertyName == 'data') {
                 ((x.name as ts.Identifier).escapedText as string) = 'initData';
+                if (!ts.isMethodDeclaration(x)) {
+                    x.initializer = ts.createMethod(null, null, null, null, null, null, [], null,
+                        ts.createBlock([
+                            ts.createReturn(x.initializer)
+                        ], true)) as any;
+                }
             } else if (propertyName == 'methods' && ts.isPropertyAssignment(x)) {
-                methodsToRemove = x;
+                propertiesToRemove.push(x);
                 if (ts.isObjectLiteralExpression(x.initializer)) {
                     x.initializer.properties.forEach(element => {
                         if (ts.isMethodDeclaration(element)) {
@@ -250,19 +266,42 @@ export function modifyVueScript(vueCode: string) {
                         };
                     });
                 }
+            } else if (propertyName == 'computed' && ts.isPropertyAssignment(x)) {
+                if (ts.isObjectLiteralExpression(x.initializer)) {
+                    const computeds = x.initializer;
+                    computeds.properties.forEach((element, i) => {
+                        if (ts.isMethodDeclaration(element)) {
+                            (computeds.properties as any)[i] = modifyVueMethods(element, vueComponentType);
+                        };
+                    });
+                }
             }
-        });
-        if (methodsToRemove) {
+        }
+
+        if(ts.isMethodDeclaration(x)) {
+            if(propertyName == 'data') {
+                ((x.name as ts.Identifier).escapedText as string) = 'initData';
+            }
+            // 这里应该还有一坨 之后调研了再搞
+
+        }
+    });
+    if (propertiesToRemove.length) {
+        propertiesToRemove.forEach(function (propertyToRemove) {
             [].splice.apply(vueCompoentOption.properties,
                 [
-                    vueCompoentOption.properties.indexOf(methodsToRemove),
+                    vueCompoentOption.properties.indexOf(propertyToRemove),
                     1,
-                    ...methods
-                ])
-        }
-    }
+                ]);
+        });
+        [].splice.apply(vueCompoentOption.properties,
+            [
+                vueCompoentOption.properties.length,
+                0,
+                ...methods
+            ]);
 
-    return astToCode(vueSourceFile)
+    }
 }
 
 export function astToCode(ast: ts.Node, options?: prettier.Options) {

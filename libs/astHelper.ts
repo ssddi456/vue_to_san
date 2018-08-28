@@ -244,6 +244,11 @@ export function endZeroPos(pos: ts.TextRange): ts.TextRange {
 export function findDefaultExports(sourceFile: ts.SourceFile ){
     return sourceFile.statements.filter(st => st.kind === ts.SyntaxKind.ExportAssignment)[0] as ts.ExportAssignment;
 }
+export function getCodeAst (code: string){
+    const instanceDataInsertor = ts.createSourceFile('test.ts', code, ts.ScriptTarget.ES5);
+    return instanceDataInsertor.statements[0];
+}
+
 
 export function getMembers(ast: ts.ObjectLiteralExpression){
     

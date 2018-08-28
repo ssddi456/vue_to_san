@@ -4,17 +4,17 @@ import 'ts-node';
 import { assert } from "chai";
 import { vueToSan } from "..";
 
-
+export interface transpileTestCases  {
+    [k: string]: {
+        vueCode: string,
+        sanCode: string,
+    }
+};
 
 
 describe('template transform', function () {
 
-    const tests: {
-        [k: string]: {
-            vueCode: string,
-            sanCode: string,
-        }
-    } = {
+    const tests: transpileTestCases = {
         '转译空文件': {
             vueCode: `<template>
 </template>
@@ -81,7 +81,18 @@ var b = 1;
             vueCode: `<template><div v-for="(some, i) in topList"></div></template>`,
             sanCode: `<template><div s-for="some, i in topList"></div></template>`,
         },
-
+        'template class obj': {
+            vueCode: `<template><div :class="{className: isClass}"></div></template>`,
+            sanCode: `<template><div class="{{ isClass ? 'className' : '' }}"></div></template>`,
+        },
+        'template class arr': {
+            vueCode: `<template><div :class="[className]"></div></template>`,
+            sanCode: `<template><div class="{{ className }}"></div></template>`,
+        },
+        'template class composite': {
+            vueCode: `<template><div :class="[className]" class="fixed-class"></div></template>`,
+            sanCode: `<template><div class="fixed-class {{ className }}"></div></template>`,
+        },
         'script initData': {
             vueCode: `<template>
 </template>
@@ -180,7 +191,7 @@ export default {
 <style>
 </style>`
         },
-        'script methods this data array': {
+        'script methods this data array 1': {
             vueCode: `<template>
 </template>
 <script>
@@ -199,6 +210,58 @@ export default {
 <script>export default {
     test() {
         this.data.push('some', 1);
+    }
+};
+</script>
+<style>
+</style>`
+        },
+        'script methods this data array 2': {
+            vueCode: `<template>
+</template>
+<script>
+export default {
+    methods: {
+        test() {
+            this.some['test'].unshift(1);
+        }
+    }
+};
+</script>
+<style>
+</style>`,
+            sanCode: `<template>
+</template>
+<script>export default {
+    test() {
+        this.data.unshift('some.test', 1);
+    }
+};
+</script>
+<style>
+</style>`
+        },
+        'script computed': {
+            vueCode: `<template>
+</template>
+<script>
+export default {
+    computed: {
+        test() {
+            this.some['test'].unshift(1);
+        }
+    }
+};
+</script>
+<style>
+</style>`,
+            sanCode: `<template>
+</template>
+<script>export default {
+    computed: {
+        test() {
+            this.data.unshift('some.test', 1);
+        }
     }
 };
 </script>
