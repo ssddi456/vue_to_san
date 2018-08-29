@@ -1,5 +1,4 @@
-import { findDefaultExports, astStringify } from "../libs/astHelper";
-import * as util from 'util';
+import { findDefaultExports, astStringify, getTextOfPropertyName, logAstType } from "../libs/astHelper";
 import * as ts from 'typescript';
 import * as prettier from 'prettier';
 
@@ -8,7 +7,7 @@ type vueCompoentTypeInfo = {
     dataNames: string[]
 };
 
-export function getComponentType(vueExport: ts.ObjectLiteralExpression): vueCompoentTypeInfo {
+export function getComponentType(): vueCompoentTypeInfo {
     const dataNames = [] as string[]
     return {
         dataNames,
@@ -17,7 +16,7 @@ export function getComponentType(vueExport: ts.ObjectLiteralExpression): vueComp
 
 const arrayMethods = ["push", "pop", "unshift", "shift", "remove", "removeAt", "splice"];
 
-export function modifyVueMethods(method: ts.MethodDeclaration, componentInfo: vueCompoentTypeInfo) {
+export function modifyVueMethods<T extends ts.MethodDeclaration | ts.FunctionExpression | ts.FunctionDeclaration>(method: T): T {
     const accessCallsToModify = markThisDataGetOrSet(method);
     const astReplaceInfos: astReplaceInfo[] = [];
     for (let i = 0; i < accessCallsToModify.length; i++) {
@@ -55,10 +54,10 @@ export function markThisDataGetOrSet(ast: ts.Node): Array<ts.PropertyAccessExpre
     function walk(node: ts.Node) {
         const prevParent = parent;
 
+        node.parent = parent;
         if (node.kind == ts.SyntaxKind.ThisKeyword) {
             thisCall.push(node);
         }
-        node.parent = parent;
 
         parent = node;
         ts.forEachChild(node, walk);
@@ -76,6 +75,15 @@ export function markThisDataGetOrSet(ast: ts.Node): Array<ts.PropertyAccessExpre
             && (ts.isPropertyAccessExpression(lookUp.parent)
                 || ts.isElementAccessExpression(lookUp.parent))
         ) {
+            if (ts.isElementAccessExpression(lookUp.parent)) {
+                if (lookUp == lookUp.parent.argumentExpression
+                    && (ts.isPropertyAccessExpression(lookUp)
+                        || ts.isElementAccessExpression(lookUp)
+                    )
+                ) {
+                    ret.push(lookUp as ts.PropertyAccessExpression);
+                }
+            }
             lookUp = lookUp.parent;
         }
 
@@ -88,7 +96,7 @@ export function markThisDataGetOrSet(ast: ts.Node): Array<ts.PropertyAccessExpre
     return ret;
 }
 
-export function replaceAccessors(ast: ts.Node, replaceToDo: astReplaceInfo[]): ts.Node {
+export function replaceAccessors<T extends ts.Node>(ast: T, replaceToDo: astReplaceInfo[]): T {
     const _replaceToDo = replaceToDo.slice(0);
     return ts.transform(ast, [function (context: ts.TransformationContext) {
         return function (rootNode) {
@@ -237,32 +245,85 @@ export function modifyVueScript(vueCode: string) {
     return astToCode(vueSourceFile)
 }
 
+export function modifyVueJsSource(vueJs: string) {
+    const vueSourceFile = ts.createSourceFile('test.ts', vueJs, ts.ScriptTarget.ES2015);
+    const vueInstances = findNewVue(vueSourceFile);
+    vueInstances.forEach(modifyVueComponent);
+    return astToCode(vueSourceFile);
+}
+export function findNewVue(sourceFile: ts.SourceFile) {
+    const vueInstance = [] as ts.NewExpression[];
+    sourceFile.statements.forEach((element) => {
+        if (ts.isExpressionStatement(element)) {
+            const expression = element.expression;
+            if (ts.isNewExpression(expression)) {
+                vueInstance.push(expression);
+            } else if (ts.isAssertionExpression(expression)) {
+                if (ts.isNewExpression(expression.expression)) {
+                    vueInstance.push(expression.expression);
+                }
+            } else if (ts.isVariableDeclaration(expression)) {
+                if (expression.initializer && ts.isNewExpression(expression.initializer)) {
+                    vueInstance.push(expression.initializer);
+                }
+            } else if (ts.isVariableDeclarationList(expression)) {
+                expression.declarations.forEach(function (declaration) {
+                    if (declaration.initializer && ts.isNewExpression(declaration.initializer)) {
+                        vueInstance.push(declaration.initializer);
+                    }
+                })
+            } else {
+                // console.log(ts.SyntaxKind[element.expression.kind], element.expression);
+            }
+        } else if (ts.isVariableStatement(element)) {
+
+            element.declarationList.declarations.forEach(function (declaration) {
+                if (declaration.initializer && ts.isNewExpression(declaration.initializer)) {
+                    vueInstance.push(declaration.initializer);
+                }
+            });
+        }
+    });
+
+    const vueInstanceConfigs = [] as ts.ObjectLiteralExpression[];
+    vueInstance.forEach(function (x) {
+        if (ts.isIdentifier(x.expression)) {
+            if (getTextOfPropertyName(x.expression) == 'Vue'
+                && x.arguments
+                && ts.isObjectLiteralExpression(x.arguments[0])
+            ) {
+                x.expression = ts.createIdentifier('San');
+                vueInstanceConfigs.push(x.arguments[0] as ts.ObjectLiteralExpression);
+            }
+        }
+    });
+
+    return vueInstanceConfigs;
+}
+
 export function modifyVueComponent(vueCompoentOption: ts.ObjectLiteralExpression) {
-
-
-    const vueComponentType = getComponentType(vueCompoentOption);
-
+    const vueComponentType = getComponentType();
     const methods = [];
     const propertiesToRemove = [];
     vueCompoentOption.properties.forEach(function (x) {
 
-        const propertyName = (x.name as ts.Identifier).escapedText as string;
+        const propertyName = getTextOfPropertyName(x.name);
         if (ts.isPropertyAssignment(x)) {
 
             if (propertyName == 'data') {
-                ((x.name as ts.Identifier).escapedText as string) = 'initData';
-                if (!ts.isMethodDeclaration(x)) {
-                    x.initializer = ts.createMethod(null, null, null, null, null, null, [], null,
-                        ts.createBlock([
-                            ts.createReturn(x.initializer)
-                        ], true)) as any;
+                x.name = ts.createIdentifier('initData');
+                
+                if (!ts.isFunctionExpression(x.initializer)) {
+                    x.initializer = ts.createFunctionExpression(null, null, null, null, [], null, ts.createBlock([
+                        ts.createReturn(x.initializer)
+                    ], true));
                 }
             } else if (propertyName == 'methods' && ts.isPropertyAssignment(x)) {
                 propertiesToRemove.push(x);
                 if (ts.isObjectLiteralExpression(x.initializer)) {
                     x.initializer.properties.forEach(element => {
                         if (ts.isMethodDeclaration(element)) {
-                            methods.push(modifyVueMethods(element, vueComponentType));
+                            methods.push(modifyVueMethods(element));
                         };
                     });
                 }
@@ -271,19 +332,20 @@ export function modifyVueComponent(vueCompoentOption: ts.ObjectLiteralExpression
                     const computeds = x.initializer;
                     computeds.properties.forEach((element, i) => {
                         if (ts.isMethodDeclaration(element)) {
-                            (computeds.properties as any)[i] = modifyVueMethods(element, vueComponentType);
-                        };
+                            (computeds.properties as any)[i] = modifyVueMethods(element);
+                        } else if (ts.isPropertyAssignment(element) && ts.isFunctionExpression(element.initializer)) {
+                            element.initializer = modifyVueMethods(element.initializer);
+                        }
                     });
                 }
             }
         }
 
-        if(ts.isMethodDeclaration(x)) {
-            if(propertyName == 'data') {
+        if (ts.isMethodDeclaration(x)) {
+            if (propertyName == 'data') {
                 ((x.name as ts.Identifier).escapedText as string) = 'initData';
             }
             // 这里应该还有一坨 之后调研了再搞
-
         }
     });
     if (propertiesToRemove.length) {

@@ -1,6 +1,6 @@
 import * as parse5 from 'parse5';
 import * as ts from 'typescript';
-import { getCodeAst, astStringify } from '../libs/astHelper';
+import { getCodeAst, astStringify, getTextOfPropertyName } from '../libs/astHelper';
 
 function vueClassToSanClass(vueClassString: string, classAttr: string) {
     let ret = '';
@@ -18,7 +18,7 @@ function vueClassToSanClass(vueClassString: string, classAttr: string) {
             })
         } else if (ts.isObjectLiteralExpression(vueClassAst)) {
             vueClassAst.properties.forEach(function (property: ts.PropertyAssignment) {
-                const name = (ts['getTextOfPropertyName'] as (name: any) => string)(property.name);
+                const name = getTextOfPropertyName(property.name);
                 ret += ' {{ ' + astStringify(property.initializer) + ' ? \'' + name + '\' : \'\' }}';
             });
         }

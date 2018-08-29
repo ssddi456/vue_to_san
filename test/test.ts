@@ -98,7 +98,7 @@ var b = 1;
 </template>
 <script>
 export default {
-    data() {
+    data: function() {
         return {
 
         };
@@ -110,7 +110,7 @@ export default {
             sanCode: `<template>
 </template>
 <script>export default {
-    initData() {
+    initData: function() {
         return {};
     }
 };
@@ -248,7 +248,7 @@ export default {
 export default {
     computed: {
         test() {
-            this.some['test'].unshift(1);
+            return this.some['test'];
         }
     }
 };
@@ -260,7 +260,7 @@ export default {
 <script>export default {
     computed: {
         test() {
-            this.data.unshift('some.test', 1);
+            return this.data.get('some.test');
         }
     }
 };

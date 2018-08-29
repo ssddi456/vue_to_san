@@ -74,6 +74,12 @@ function nodeTypeLogger<T extends ts.Node>(context: ts.TransformationContext) {
     }
 }
 
+export function logAstType(label: string, ast: ts.Node) {
+    console.log('---------', label);
+    ts.transform(ast, [nodeTypeLogger]);
+    console.log('---------');
+}
+
 export function logCodeAst(code: string) {
     console.log('---------');
     const instanceDataInsertor = ts.createSourceFile('test.ts', code, ts.ScriptTarget.ES5);
@@ -242,13 +248,16 @@ export function endZeroPos(pos: ts.TextRange): ts.TextRange {
 }
 
 export function findDefaultExports(sourceFile: ts.SourceFile ){
-    return sourceFile.statements.filter(st => st.kind === ts.SyntaxKind.ExportAssignment)[0] as ts.ExportAssignment;
+    return sourceFile.statements.filter(st => ts.isExportAssignment(st))[0] as ts.ExportAssignment;
 }
+
 export function getCodeAst (code: string){
     const instanceDataInsertor = ts.createSourceFile('test.ts', code, ts.ScriptTarget.ES5);
     return instanceDataInsertor.statements[0];
 }
-
+export function getTextOfPropertyName(node: ts.Identifier | ts.StringLiteral | ts.PropertyName | ts.BindingName): string{
+    return (ts['getTextOfPropertyName'] as (name: any) => string)(node);
+}      
 
 export function getMembers(ast: ts.ObjectLiteralExpression){
     

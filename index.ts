@@ -1,5 +1,5 @@
 import * as parse5 from 'parse5';
-import { modifyVueScript } from './modes/javascript';
+import { modifyVueScript, modifyVueJsSource } from './modes/javascript';
 import { walkVueTemplate } from './modes/template';
 
 
@@ -33,3 +33,12 @@ export function vueToSan(vueCode: string) {
     const sanCode = parse5.serialize(vueTree);
     return sanCode;
 }
+
+export function vueHTMLToSanHTML(vueHTML: string) {
+    const vueTree = parse5.parseFragment(vueHTML, { sourceCodeLocationInfo: true }) as parse5.DefaultTreeDocumentFragment;
+    vueTree.childNodes.forEach(walkVueTemplate);
+    const sanCode = parse5.serialize(vueTree);
+    return sanCode;
+}
+
+export const vueJsToSanJs = modifyVueJsSource;
