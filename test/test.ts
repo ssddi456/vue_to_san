@@ -93,6 +93,22 @@ var b = 1;
             vueCode: `<template><div :class="[className]" class="fixed-class"></div></template>`,
             sanCode: `<template><div class="fixed-class {{ className }}"></div></template>`,
         },
+        'template style obj': {
+            vueCode: `<template><div :style="{ border: width + 'px', height: '30px' }"></div></template>`,
+            sanCode: `<template><div style="border: {{ width + 'px' }};height: 30px;"></div></template>`,
+        },
+        'template style camalcase': {
+            vueCode: `<template><div :style="{ borderWidth: width + 'px'}"></div></template>`,
+            sanCode: `<template><div style="border-width: {{ width + 'px' }};"></div></template>`,
+        },
+        'template style dashed': {
+            vueCode: `<template><div :style="{ 'border-width': width + 'px'}"></div></template>`,
+            sanCode: `<template><div style="border-width: {{ width + 'px' }};"></div></template>`,
+        },
+        'template style composite': {
+            vueCode: `<template><div :style="{ border: width + 'px'}" style="fixed-style: value"></div></template>`,
+            sanCode: `<template><div style="fixed-style: value;border: {{ width + 'px' }};"></div></template>`,
+        },
         'script initData': {
             vueCode: `<template>
 </template>

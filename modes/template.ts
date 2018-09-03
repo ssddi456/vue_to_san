@@ -1,6 +1,9 @@
 import * as parse5 from 'parse5';
 import * as ts from 'typescript';
+import * as prettier from 'prettier';
+
 import { getCodeAst, astStringify, getTextOfPropertyName } from '../libs/astHelper';
+import { camalCaseToDashed } from '../libs/utils';
 
 function vueClassToSanClass(vueClassString: string, classAttr: string) {
     let ret = '';
@@ -21,10 +24,49 @@ function vueClassToSanClass(vueClassString: string, classAttr: string) {
                 const name = getTextOfPropertyName(property.name);
                 ret += ' {{ ' + astStringify(property.initializer) + ' ? \'' + name + '\' : \'\' }}';
             });
+        } else {
+            console.log('unsupport class bind syntax');
         }
     }
 
     return (classAttr + ret).trim();
+}
+
+function vueStyleToSanStyle(vueStyleString: string, styleAttr: string) {
+    let ret = '';
+
+    if (!vueStyleString.match(/[\{\}]/)) {
+        // 说明是一个vue实例上的对象，这里转换不了
+        // 需要插入一个lib来做转换
+    } else {
+        const vueClassAst = ((getCodeAst('(' + vueStyleString + ')') as ts.ExpressionStatement)
+            .expression as ts.ParenthesizedExpression).expression;
+
+        if (ts.isObjectLiteralExpression(vueClassAst)) {
+            vueClassAst.properties.forEach(function (property: ts.PropertyAssignment) {
+                const name = getTextOfPropertyName(property.name);
+                let value = '';
+
+                if (ts.isStringLiteral( property.initializer)) {
+                    value = getTextOfPropertyName(property.initializer);
+                    ret += `${camalCaseToDashed(name)}: ${value};`;
+                } else {
+                    value = prettier.format(
+                        astStringify(property.initializer),
+                        {
+                            parser: 'typescript',
+                            singleQuote: true,
+                        }).slice(0, -2);
+                    ret += `${camalCaseToDashed(name)}: {{ ${value} }};`;
+                }
+
+            });
+        } else {
+            console.log('unsupport style bind syntax');
+        }
+    }
+
+    return ((styleAttr ? (styleAttr.replace(/;$/, '') + ';') : '') + ret).trim();
 }
 
 interface markedAttr extends parse5.Attribute {
@@ -34,6 +76,7 @@ interface markedAttr extends parse5.Attribute {
 function processAttrBind(attr: markedAttr, allAttr: parse5.Attribute[]) {
     const _attrName = attr.name.slice(0, 7) == 'v-bind:' ? attr.name.slice(7) : attr.name.slice(1);
     const [attrname, filter] = _attrName.split('.') as [string, string];
+
 
     // 单向绑定
     // 暂时不处理modifier
@@ -50,6 +93,16 @@ function processAttrBind(attr: markedAttr, allAttr: parse5.Attribute[]) {
 
         attr.value = vueClassToSanClass(attr.value, classAttr ? classAttr.value : '');
         attr.name = 'class';
+        return;
+    }
+    else if (attrname == 'style') {
+        const styleAttr = allAttr.filter(x => x.name == 'style')[0] as markedAttr;
+        if (styleAttr) {
+            styleAttr.deleted = true;
+        }
+
+        attr.value = vueStyleToSanStyle(attr.value, styleAttr ? styleAttr.value : '');
+        attr.name = 'style';
         return;
     }
     else {
@@ -107,7 +160,6 @@ function modifyVueAttr(attr: markedAttr, allAttr: parse5.Attribute[]) {
             case 'v-pre':
             case 'v-cloak':
             case 'v-once':
-                console.log('unsupport attr name', attr.name);
                 break;
             default:
 
