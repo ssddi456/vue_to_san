@@ -291,6 +291,51 @@ export default {
 </script>
 <style>
 </style>`
+        }, 
+        'misc component file': {
+            vueCode: `<template>
+    <div></div>
+</template>
+<style>
+.test {
+
+}
+</style>
+
+<script>
+export default {
+    data(){
+        return {
+            some: 1
+        }
+    },
+    methods: {
+        test(){
+            return this.some;
+        }
+    }
+}
+</script>`,
+            sanCode: `<template>
+    <div></div>
+</template>
+<style>
+.test {
+
+}
+</style>
+
+<script>export default {
+    initData() {
+        return {
+            some: 1
+        };
+    },
+    test() {
+        return this.data.get('some');
+    }
+};
+</script>`
         },
     };
 
