@@ -33,7 +33,7 @@ describe('js transform', function () {
     }
 })
 `,
-            sanCode: `new San({
+            sanCode: `new San.defineComponent({
     initData: function() {
         return {
             test: 1
@@ -54,7 +54,7 @@ describe('js transform', function () {
     }
 })
 `,
-            sanCode: `new San({
+            sanCode: `new San.defineComponent({
     initData: function() {
         return {
             test: 1
@@ -78,7 +78,7 @@ describe('js transform', function () {
     }
 })
 `,
-            sanCode: `const test = new San({
+            sanCode: `const test = new San.defineComponent({
     initData: function() {
         return {
             test: 1
@@ -112,7 +112,7 @@ var app = new Vue({
 })
 `,
             sanCode: `// app Vue instance
-var app = new San({
+var app = new San.defineComponent({
     // watch todos change for localStorage persistence
     watch: {
         todos: {
@@ -154,7 +154,7 @@ var app = new Vue({
 })
 `,
             sanCode: `// app Vue instance
-var app = new San({
+var app = new San.defineComponent({
     // watch todos change for localStorage persistence
     watch: {
         todos: {

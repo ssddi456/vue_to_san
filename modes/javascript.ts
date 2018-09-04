@@ -292,7 +292,7 @@ export function findNewVue(sourceFile: ts.SourceFile) {
                 && x.arguments
                 && ts.isObjectLiteralExpression(x.arguments[0])
             ) {
-                x.expression = ts.createIdentifier('San');
+                x.expression = ts.createIdentifier('San.defineComponent');
                 vueInstanceConfigs.push(x.arguments[0] as ts.ObjectLiteralExpression);
             }
         }

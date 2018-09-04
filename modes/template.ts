@@ -22,7 +22,13 @@ function vueClassToSanClass(vueClassString: string, classAttr: string) {
         } else if (ts.isObjectLiteralExpression(vueClassAst)) {
             vueClassAst.properties.forEach(function (property: ts.PropertyAssignment) {
                 const name = getTextOfPropertyName(property.name);
-                ret += ' {{ ' + astStringify(property.initializer) + ' ? \'' + name + '\' : \'\' }}';
+                const value = prettier.format(
+                        astStringify(property.initializer),
+                        {
+                            parser: 'typescript',
+                            singleQuote: true,
+                        }).slice(0, -2);
+                ret += ' {{ ' + value + ' ? \'' + name + '\' : \'\' }}';
             });
         } else {
             console.log('unsupport class bind syntax');
@@ -80,6 +86,8 @@ function processAttrBind(attr: markedAttr, allAttr: parse5.Attribute[]) {
 
     // 单向绑定
     // 暂时不处理modifier
+    
+    // trackBy
     if (attrname == 'kay') {
         return;
     }
@@ -109,6 +117,18 @@ function processAttrBind(attr: markedAttr, allAttr: parse5.Attribute[]) {
         attr.name = attrname;
         attr.value = '{{ ' + attr.value + (filter ? '| ' + filter : '') + ' }}';
         return;
+    }
+}
+
+function modifyVueFor(attr: markedAttr, allAttr: parse5.Attribute[]) {
+    // 在这里构造成san的格式，没括号
+    attr.name = 's-for';
+    attr.value = attr.value.replace(/\(|\)/g, '');
+    const keyAttr = allAttr.filter(x => x.name == ':key')[0] as markedAttr;
+
+    if (keyAttr) {
+        keyAttr.deleted = true;
+        attr.value += ' trackBy ' + keyAttr.value;
     }
 }
 
@@ -144,10 +164,8 @@ function modifyVueAttr(attr: markedAttr, allAttr: parse5.Attribute[]) {
                 attr.name = 's-else-if';
                 break;
             case 'v-for':
-                attr.name = 's-for';
-                // 在这里构造成san的格式，没括号
-                attr.name = 's-for';
-                attr.value = attr.value.replace(/\(|\)/g, '');
+
+                modifyVueFor(attr, allAttr);
                 break;
             case 'v-on':
                 attr.name = 's-on';
@@ -179,25 +197,55 @@ function modifyVueAttr(attr: markedAttr, allAttr: parse5.Attribute[]) {
     }
 }
 
+export function modifyVueAttrs( attrs: parse5.Attribute[] ){
+    for (let i = 0; i < attrs.length; i++) {
+        const element = attrs[i];
+        modifyVueAttr(element, attrs);
+    }
 
-export function walkVueTemplate(doc: parse5.DefaultTreeElement) {
+    for (let i = attrs.length - 1; i >= 0; i--) {
+        const element = attrs[i] as markedAttr;
+        if (element.deleted) {
+            attrs.splice(i, 1);
+        }
+    }
+}
+
+export function walkVueTemplate(doc: parse5.DefaultTreeElement, allChildren?: parse5.DefaultTreeElement[]) {
     if (doc.attrs) {
-        for (let i = 0; i < doc.attrs.length; i++) {
-            const element = doc.attrs[i];
-            modifyVueAttr(element, doc.attrs);
+        const allAttr = doc.attrs;
+        const forAttr = allAttr.filter(x => x.name == 'v-for')[0] as markedAttr;
+        const keyAttr = allAttr.filter(x => x.name == ':key')[0] as markedAttr;
+        const ifAttr = allAttr.filter(x => x.name == 'v-if')[0] as markedAttr;
+        
+        if(forAttr && ifAttr) {
+
+            const newTemplateNode: parse5.DefaultTreeElement & { content: parse5.DocumentFragment }= {
+                ...doc,
+                attrs: [forAttr, keyAttr].filter(Boolean),
+                tagName: 'template',
+                nodeName: 'template',
+                content: {
+                    nodeName: '#document-fragment',
+                    childNodes: [doc]
+                },
+            };
+
+            doc.parentNode = newTemplateNode;
+            doc.attrs.splice( allAttr.indexOf(forAttr), 1);
+            doc.attrs.splice( allAttr.indexOf(keyAttr), 1);
+            allChildren.splice(allChildren.indexOf(doc), 1, newTemplateNode);
+
+            modifyVueAttrs(newTemplateNode.attrs);
         }
-        for (let i = doc.attrs.length - 1; i >= 0; i--) {
-            const element = doc.attrs[i] as markedAttr;
-            if (element.deleted) {
-                doc.attrs.splice(i, 1);
-            }
-        }
+
+        modifyVueAttrs(doc.attrs);
     }
 
     if (doc.childNodes) {
         for (let index = 0; index < doc.childNodes.length; index++) {
             const element = doc.childNodes[index];
-            walkVueTemplate(element as parse5.DefaultTreeElement);
+            walkVueTemplate(element as parse5.DefaultTreeElement, doc.childNodes as parse5.DefaultTreeElement[]);
         }
     }
 }

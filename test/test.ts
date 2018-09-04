@@ -81,6 +81,14 @@ var b = 1;
             vueCode: `<template><div v-for="(some, i) in topList"></div></template>`,
             sanCode: `<template><div s-for="some, i in topList"></div></template>`,
         },
+        'template v-for with key': {
+            vueCode: `<template><div v-for="(some, i) in topList" :key="some.key"></div></template>`,
+            sanCode: `<template><div s-for="some, i in topList trackBy some.key"></div></template>`,
+        },
+        'template v-for with if': {
+            vueCode: `<template><div v-for="(some, i) in topList" :key="some.key" v-if="some.data == 1"></div></template>`,
+            sanCode: `<template><template s-for="some, i in topList trackBy some.key"><div s-if="some.data == 1"></div></template></template>`,
+        },
         'template class obj': {
             vueCode: `<template><div :class="{className: isClass}"></div></template>`,
             sanCode: `<template><div class="{{ isClass ? 'className' : '' }}"></div></template>`,
